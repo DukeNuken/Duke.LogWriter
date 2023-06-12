@@ -7,7 +7,8 @@ namespace Duke.LogWriter
     {
         private string _FileMask = "";
         private string _LineMask = "";
-        private string _LogFolder = "";
+        private string _LogFolder = "logs";
+        private bool _ShowInConsoleDefault = false;
         public string FileMask
         {
             get
@@ -56,16 +57,39 @@ namespace Duke.LogWriter
         }
         public string LogFolder
         {
-            get { return _LogFolder; }
+            get {
+                return _LogFolder; 
+            }
             set
-            {
-                if (value == null)
-                    _LogFolder = "logs";
-                else
-                    _LogFolder = value;
+            {              
+                _LogFolder = value;
             }
         }
-        public string WorkFile { get; set; }
+        public bool ShowInConsoleDefault { 
+            get { 
+                return _ShowInConsoleDefault; 
+            } 
+            set
+            {
+                _ShowInConsoleDefault = value;
+            }
+        }
+        public string WorkFile { 
+            get {
+                string path = AppDomain.CurrentDomain.BaseDirectory;
+                if (!String.IsNullOrEmpty(LogFolder))
+                {
+                    path = Path.Combine(path, LogFolder);
+                    if (!Directory.Exists(path))
+                        Directory.CreateDirectory(path);
+                }
+                if (!String.IsNullOrEmpty(path))
+                {
+                    path = Path.Combine(path, FileMask);
+                }
+                return path;
+            }
+        }
         public string ErrorMessage { get; set; }
 
         private static LogWriter _instance;
@@ -83,12 +107,10 @@ namespace Duke.LogWriter
 
         private LogWriter()
         {
-            FileMask = ConfigurationManager.AppSettings["Duke.LogWriter.FileMask"];
-            LineMask = ConfigurationManager.AppSettings["Duke.LogWriter.LineMask"];
-            LogFolder = ConfigurationManager.AppSettings["Duke.LogWriter.LogFolder"];
+            //_LogFolder = "logs";
         }
 
-        public void WriteHeader(string txt, bool showInConsole = false, int headerLength = 80)
+        public void WriteHeader(string txt, bool? showInConsole = null, int headerLength = 80)
         {
             try
             {
@@ -121,35 +143,24 @@ namespace Duke.LogWriter
             }
         }
 
-        public void WriteLog(string txt, bool showInConsole = false)
+        public void WriteLog(string txt, bool? showInConsole = null)
         {
             try
             {
                 string log = "";
-                if (LineMask.IndexOf("{log}") > 0)
+                if (LineMask.IndexOf("{log}") > -1)
                     log = LineMask.Replace("{log}", txt);
                 else log = LineMask + txt;
 
-                if (!Path.IsPathRooted(FileMask))
-                {
-                    string path = AppDomain.CurrentDomain.BaseDirectory;
-                    if (!String.IsNullOrEmpty(LogFolder))
-                    {
-                        path = Path.Combine(path, LogFolder);
-                        if (!Directory.Exists(path))
-                            Directory.CreateDirectory(path);
-                    }
-                    if (!String.IsNullOrEmpty(path))
-                    {
-                        FileMask = Path.Combine(path, FileMask);
-                    }
-                }
-
-                StreamWriter sw = new StreamWriter(FileMask, true);
+                StreamWriter sw = new StreamWriter(WorkFile, true);
                 sw.WriteLine(log);
                 sw.Close();
 
-                if (showInConsole)
+                if (showInConsole.HasValue && showInConsole.Value)
+                {
+                    Console.WriteLine(log);
+                }
+                else if (ShowInConsoleDefault)  
                     Console.WriteLine(log);
             }
             catch (Exception ex)
